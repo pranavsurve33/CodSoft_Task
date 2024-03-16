@@ -1,0 +1,116 @@
+import numpy as np 
+import pandas as pd 
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+
+import os
+for dirname, _, filenames in os.walk('/kaggle/input'):
+    for filename in filenames:
+        print(os.path.join(dirname, filename))
+
+import warnings
+warnings.filterwarnings("ignore")
+
+df= pd.read_csv('/kaggle/input/bank-customer-churn-prediction/Churn_Modelling.csv')
+
+df.head()
+
+df.shape
+
+df.info()
+
+df.describe()
+
+df.isnull().sum()
+
+df.duplicated().sum()
+
+sns.countplot(x='Exited', data=df
+
+sns.countplot(x='Geography', data=df)
+
+sns.countplot(x='Gender', data=df)
+
+sns.countplot(x='Exited', hue='Gender', data=
+
+sns.countplot(x='Geography', hue='Gender', data=df)
+
+sns.countplot(x='Exited', hue='Geography', data=df
+
+df.columns
+
+df['Exited'].value_counts()
+
+df['Geography'].value_counts()
+
+df.drop(['RowNumber','CustomerId','Surname'], axis=1, inplace=True)
+
+df.head()
+
+label_encoder = LabelEncoder()
+df['Geography']=label_encoder.fit_transform(df["Geography"])
+df['Gender']=label_encoder.fit_transform(df["Gender"])
+
+df.head()
+
+df.corr()
+
+sns.heatmap(df.corr(), annot=True, fmt='.2f')
+
+x=df.drop(['Exited'],axis=1)
+y=df['Exited']
+
+x_train, x_test,y_train, y_test= train_test_split(x, y, test_size=0.2,random_state=42 )
+
+x_train.shape
+
+x_test.shape
+
+model1 = LogisticRegression()
+model2 = RandomForestClassifier()
+model3 = GradientBoostingClassifier()
+
+columns = ['LogisticRegression', 'RandomForestClassifier' , 'GradientBoostingClassifier']
+accuracies=[]
+
+def cal(model):
+    model.fit(x_train, y_train)
+    y_pred = model.predict(x_test)
+    accuracy = accuracy_score(y_pred,y_test)
+    
+    accuracies.append(accuracy)
+    
+    print("-----Model Evaluation on Test Data-----")
+    print(model)
+    print()
+    print('Confusion Matrix:\n',confusion_matrix(y_test,y_pred))
+    sns.heatmap(confusion_matrix(y_test,y_pred),annot=True)
+    print()
+    print('Classification Report:\n',classification_report(y_test,y_pred))
+
+cal(model1)
+
+cal(model2)
+
+cal(model3)
+
+accuracies
+
+FinalResult=pd.DataFrame({'Algorithm':columns, 'Accuracy':accuracies})
+
+FinalResult
+
+fig,ax=plt.subplots(figsize=(20,5))
+plt.plot(FinalResult.Algorithm,accuracies,label="Accuracy")
+plt.legend()
+plt.show()
+
+# Gradient Boosting Model
+y_pred = model3.predict(x_test)
+print("Accuracy:",accuracy_score(y_test,y_pred))
