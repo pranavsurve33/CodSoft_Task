@@ -1,0 +1,184 @@
+# This Python 3 environment comes with many helpful analytics libraries installed
+# It is defined by the kaggle/python Docker image: https://github.com/kaggle/docker-python
+# For example, here's several helpful packages to load
+
+import numpy as np # linear algebra
+import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
+
+# Input data files are available in the read-only "../input/" directory
+# For example, running this (by clicking run or pressing Shift+Enter) will list all files under the input directory
+
+import os
+for dirname, _, filenames in os.walk('/kaggle/input'):
+    for filename in filenames:
+        print(os.path.join(dirname, filename))
+
+# You can write up to 20GB to the current directory (/kaggle/working/) that gets preserved as output when you create a version using "Save & Run All" 
+# You can also write temporary files to /kaggle/temp/, but they won't be saved outside of the current session
+
+import spacy
+import nltk
+import matplotlib.pyplot as plt
+
+df = pd.read_csv('/kaggle/input/sms-spam-collection-dataset/spam.csv', encoding='latin1')
+
+df.head()
+
+df.isna().sum()
+
+# drop columns with NaN values
+df.drop(columns=['Unnamed: 2', 'Unnamed: 3', 'Unnamed: 4'], inplace=True)
+
+# remane columns
+df.columns = ['target', 'text']
+df.head()
+
+# OneHotEncoding our target
+df['isSpam'] = df['target'].apply(lambda x: 0 if x == 'ham' else 1)
+df.drop(columns=['target'], inplace=True)
+df.head()
+
+# cheching for duplicate
+df.duplicated().su
+
+# drop duplicated values
+df = df.drop_duplicates(keep='first')
+
+values = df['isSpam'].value_counts()
+values
+
+fig, ax = plt.subplots(figsize=(8, 8))
+
+ax.set_facecolor('white')
+
+wedget, texts, autotexts = ax.pie(values, labels=['ham', 'spam'], autopct='%0.2f%%')
+
+for text, autotext in zip(texts, autotexts):
+    text.set(size=14, weight='bold')
+    autotext.set(size=14, weight='bold')
+    
+ax.set_title('Email Classification')    
+
+ax.axis('equal')
+
+plt.show()
+
+nlp = spacy.load('en_core_web_sm')
+
+def transform_text(text: str):
+    text = text.lower()
+    doc = nlp(text)
+    y = []
+    for token in doc:
+        if not token.is_punct and not token.is_stop:
+            y.append(token.lemma_)
+    return ' '.join(y)
+
+import string
+from nltk.stem import PorterStemmer
+from nltk.corpus import stopwords
+
+ps = PorterStemmer()
+
+def stemming_text(text: str):
+    text = text.lower()
+    text = nltk.word_tokenize(text)
+    
+    y = []
+    
+    for t in text:
+        if t.isalnum():
+            y.append(t)
+            
+    text = y[:]
+    y.clear()
+    
+    for t in text:
+        if t not in stopwords.words('english') and t not in string.punctuation:
+            y.append(t)
+            
+    text = y[:]
+    y.clear()
+    
+    for t in text:
+        y.append(ps.stem(t))
+        
+    return ' '.join(y)
+
+df['lemma_text'] = df['text'].apply(transform_text)
+
+df['stemed_text'] = df['text'].apply(stemming_text)
+
+df.head()
+
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+
+cv = CountVectorizer()
+tfidf = TfidfVectorizer(max_features = 3000)
+
+X_1 = tfidf.fit_transform(df['lemma_text']).toarray()
+X_2 = tfidf.fit_transform(df['stemed_text']).toarray()
+y = df['isSpam']
+
+from sklearn.model_selection import train_test_split
+
+# lemma 
+X_train_1, X_test_1 , y_train_1, y_test_1 = train_test_split(X_1,y,test_size = 0.20, random_state = 2)
+
+# stem
+X_train_2, X_test_2 , y_train_2, y_test_2 = train_test_split(X_2,y,test_size = 0.20, random_state = 2)
+
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.ensemble import RandomForestClassifier
+from xgboost import XGBClassifier
+
+from sklearn.metrics import accuracy_score, precision_score
+
+def train_classifier(clfs, X_train, y_train, X_test, y_test):
+    clfs.fit(X_train,y_train)
+    y_pred = clfs.predict(X_test)
+    accuracy = accuracy_score(y_test, y_pred)
+    precision = precision_score(y_test, y_pred)
+    return accuracy , precision
+
+mnb = MultinomialNB()
+rfc = RandomForestClassifier(n_estimators = 50, random_state = 2 )
+gbdt = GradientBoostingClassifier(n_estimators = 50, random_state = 2)    
+xgb  = XGBClassifier(n_estimators = 50, random_state = 2)
+
+clfs = {
+    'NB': mnb,
+    'RF': rfc,
+    'GBDT': gbdt,
+    'xgb': xgb
+}
+
+# modeling for lemma_text
+for name, clfs in clfs.items():
+    current_accuracy, current_precision = train_classifier(clfs, X_train_1, y_train_1, X_test_1, y_test_1)
+    print()
+    print("For: ", name)
+    print("Accuracy: ", current_accuracy)
+    print("Precision: ", current_precision)
+
+mnb1 = MultinomialNB()
+rfc1 = RandomForestClassifier(n_estimators = 50, random_state = 2 )
+gbdt1 = GradientBoostingClassifier(n_estimators = 50, random_state = 2)    
+xgb1  = XGBClassifier(n_estimators = 50, random_state = 2)
+
+clfs1 = {
+    'NB': mnb1,
+    'RF': rfc1,
+    'GBDT': gbdt1,
+    'xgb': xgb1
+}
+
+# modeling for stem_text
+for name, clfs in clfs1.items():
+    current_accuracy, current_precision = train_classifier(clfs, X_train_2, y_train_2, X_test_2, y_test_2)
+    print()
+    print("For: ", name)
+    print("Accuracy: ", current_accuracy)
+    print("Precision: ", current_precision)
+
